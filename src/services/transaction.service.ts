@@ -10,7 +10,11 @@ export const createTransaction = async (data: any, createdById: string) => {
   });
 };
 
-export const getTransactions = async (filters: { type?: string, category?: string, startDate?: string, endDate?: string }) => {
+export const getTransactions = async (
+  filters: { type?: string, category?: string, startDate?: string, endDate?: string },
+  page: number = 1,
+  limit: number = 10
+) => {
   const query: any = { isDeleted: false };
   if (filters.type) query.type = filters.type;
   if (filters.category) query.category = filters.category;
@@ -20,10 +24,27 @@ export const getTransactions = async (filters: { type?: string, category?: strin
     if (filters.endDate) query.date.lte = new Date(filters.endDate);
   }
 
-  return await prisma.transaction.findMany({
-    where: query,
-    orderBy: { date: 'desc' }
-  });
+  const skip = (page - 1) * limit;
+
+  const [total, transactions] = await prisma.$transaction([
+    prisma.transaction.count({ where: query }),
+    prisma.transaction.findMany({
+      where: query,
+      orderBy: { date: 'desc' },
+      skip,
+      take: limit
+    })
+  ]);
+
+  return {
+    data: transactions,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 export const getTransactionById = async (id: string) => {

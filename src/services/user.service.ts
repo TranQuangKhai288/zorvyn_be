@@ -1,10 +1,28 @@
 import { prisma } from '../config/db';
 import { AppError } from '../utils/AppError';
 
-export const getAllUsers = async () => {
-  return await prisma.user.findMany({
-    select: { id: true, email: true, role: true, status: true, createdAt: true }
-  });
+export const getAllUsers = async (page: number = 1, limit: number = 10) => {
+  const skip = (page - 1) * limit;
+  
+  const [total, users] = await prisma.$transaction([
+    prisma.user.count(),
+    prisma.user.findMany({
+      skip,
+      take: limit,
+      select: { id: true, email: true, role: true, status: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
+    })
+  ]);
+
+  return {
+    data: users,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 export const updateUserRole = async (id: string, role: any) => {
